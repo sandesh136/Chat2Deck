@@ -15,8 +15,12 @@ def main():
             return
         
         with st.spinner("Generating PPT..."):
-            ppt_file = query_to_pptx(query, num_slides)
-            st.download_button("Download PPT", ppt_file, file_name="generated_presentation.pptx")
+            try:
+                ppt_file = query_to_pptx(query, num_slides)
+                st.download_button("Download PPT", ppt_file, file_name="generated_presentation.pptx")
+                st.success("Presentation generated successfully!")
+            except RuntimeError as e:
+                st.error(f"We are facing some technical problems. Please try again later.\n\nDetails: {e}")
         
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 from .gemini_client import generate_slides
 from .ppt_generator import create_pptx_from_code
+import logging
 
 def query_to_pptx(query: str, num_slides: int):
     example_code = '''
@@ -114,17 +115,36 @@ prs.save("generated_presentation.pptx")
 
 '''
 
-    prompt = (
+    initial_prompt = (
         f"You are an expert assistant that generates Python code using the 'python-pptx' library "
         f"to create a professional, interactive PowerPoint presentation titled '{query}' "
         f"with approximately {num_slides} slides. "
         "The Python code must be complete, runnable, and self-contained. "
         "Include high-quality charts with labels and legends, text formatting, bullet points with emojis, and polished styling. "
-        "Below is an example of a well-structured, runnable python-pptx script that your output should emulate in style and completeness, "
-        "and must save the presentation to 'generated_presentation.pptx' exactly as shown:\n"
+        "Below is an example of a well-structured, runnable python-pptx script that your output should emulate in style and completeness. "
+        "The code must save the presentation to 'generated_presentation.pptx' exactly as shown in the example:\n"
         f"{example_code}\n"
         "Return only the complete Python code without any explanations or additional formatting."
     )
-    python_code = generate_slides(prompt)
-    return create_pptx_from_code(python_code)
 
+    max_retries = 3
+    last_error = None
+    python_code = None
+
+    for attempt in range(max_retries):
+        logging.info(f"Presentation generation attempt {attempt + 1} of {max_retries}")
+        try:
+            prompt = initial_prompt if attempt == 0 else (
+                f"The previous Python code you generated failed with an error. Please fix it.\n\n"
+                f"Original Request: Create a presentation about '{query}'.\n\n"
+                f"--- BROKEN CODE ---\n{python_code}\n\n"
+                f"--- ERROR MESSAGE ---\n{last_error}\n\n"
+                f"Provide the complete, corrected Python code that fixes the error. Do not include explanations."
+            )
+            python_code = generate_slides(prompt)
+            return create_pptx_from_code(python_code)
+        except Exception as e:
+            last_error = e
+            logging.warning(f"Attempt {attempt + 1} failed with error: {e}")
+
+    raise RuntimeError(f"Failed to generate a valid presentation after {max_retries} attempts. Last error: {last_error}")
